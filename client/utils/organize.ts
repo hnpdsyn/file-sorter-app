@@ -30,6 +30,9 @@ export interface OrganizeResult {
   skippedSize: number;
   failed: number;
   perCategory: Record<string, number>;
+  // 本次整理的授权根目录与各分类文件夹 uri（用于整理后浏览）
+  rootUri: string;
+  perCategoryUris: Record<string, string>;
 }
 
 function containsKeyword(haystack: string, keywords: string[]): boolean {
@@ -114,6 +117,8 @@ export async function executeOrganize(
     skippedSize: 0,
     failed: 0,
     perCategory: {},
+    rootUri,
+    perCategoryUris: {},
   };
   const dirCache = new DirCache(rootUri);
   const namePools = new Map<string, Set<string>>();
@@ -124,6 +129,7 @@ export async function executeOrganize(
       const cat = categories.find((c) => c.id === item.categoryId);
       const dirName = cat ? cat.name : '其他文件';
       const dirUri = await dirCache.get(dirName);
+      result.perCategoryUris[dirName] = dirUri;
 
       let pool = namePools.get(dirUri);
       if (!pool) {

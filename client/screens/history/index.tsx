@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
 import { clearHistory, loadHistory, type HistoryRecord } from '@/utils/store';
@@ -17,6 +17,7 @@ function fmtTime(ts: number): string {
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [records, setRecords] = useState<HistoryRecord[]>([]);
 
   useFocusEffect(
@@ -51,16 +52,32 @@ export default function HistoryScreen() {
         {item.failed > 0 ? ` · 失败 ${item.failed} 个` : ''}
       </Text>
       <View style={styles.tagWrap}>
-        {Object.entries(item.perCategory).map(([name, count]) => (
-          <View key={name} style={styles.tag}>
-            <Text style={styles.tagText}>
-              {name} {count}
-            </Text>
-          </View>
-        ))}
+        {Object.entries(item.perCategory).map(([name, count]) => {
+          const dirUri = item.perCategoryUris?.[name];
+          return (
+            <Pressable
+              key={name}
+              style={({ pressed }) => [styles.tag, pressed && styles.tagPressed]}
+              onPress={() => {
+                if (dirUri) {
+                  router.push({ pathname: '/browser', params: { uri: dirUri, name } });
+                } else {
+                  Alert.alert(
+                    '无法浏览',
+                    '这条记录没有保存目录信息（旧版本整理的），重新整理一次后即可点分类查看文件',
+                  );
+                }
+              }}
+            >
+              <Text style={styles.tagText}>
+                {name} {count} ›
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
-  ), []);
+  ), [router]);
 
   return (
     <Screen safeAreaEdges={['top', 'left', 'right']}>
@@ -114,6 +131,7 @@ const styles = StyleSheet.create({
   cardSummary: { fontSize: 13, color: '#4B5563', marginTop: 6 },
   tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   tag: { backgroundColor: `${THEME}14`, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8 },
+  tagPressed: { opacity: 0.6 },
   tagText: { fontSize: 12, color: THEME, fontWeight: '500' },
   emptyWrap: { alignItems: 'center', paddingTop: 120, gap: 10 },
   emptyIcon: { fontSize: 44 },

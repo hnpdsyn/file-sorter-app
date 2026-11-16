@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
 import { getExt, type RulesConfig } from '@/utils/fileRules';
@@ -35,6 +36,7 @@ const MATCHED_LABEL: Record<ClassifiedFile['matchedBy'], string> = {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>('idle');
   const [picked, setPicked] = useState<PickResult | null>(null);
   const [scanCount, setScanCount] = useState(0);
@@ -116,6 +118,8 @@ export default function HomeScreen() {
         skippedSize: res.skippedSize,
         failed: res.failed,
         perCategory: res.perCategory,
+        rootUri: picked.uri,
+        perCategoryUris: res.perCategoryUris,
       };
       await addHistory(record);
       if (res.failed > 0) {
@@ -275,13 +279,29 @@ export default function HomeScreen() {
             <Text style={styles.doneSub}>{result.failed} 个失败（可能被系统占用）</Text>
           )}
           <View style={styles.resultWrap}>
-            {Object.entries(result.perCategory).map(([name, count]) => (
-              <View key={name} style={styles.resultRow}>
-                <Text style={styles.resultName}>{name}</Text>
-                <Text style={styles.resultCount}>{count} 个</Text>
-              </View>
-            ))}
+            {Object.entries(result.perCategory).map(([name, count]) => {
+              const dirUri = result.perCategoryUris?.[name];
+              return (
+                <Pressable
+                  key={name}
+                  style={({ pressed }) => [styles.resultRow, pressed && styles.resultRowPressed]}
+                  disabled={!dirUri}
+                  onPress={() =>
+                    dirUri &&
+                    router.push({ pathname: '/browser', params: { uri: dirUri, name } })
+                  }
+                >
+                  <Text style={styles.resultName}>{name}</Text>
+                  <Text style={styles.resultCount}>
+                    {count} 个{dirUri ? ' ›' : ''}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
+          {Object.keys(result.perCategoryUris || {}).length > 0 && (
+            <Text style={styles.doneSub}>点分类名称可查看文件夹里的文件</Text>
+          )}
           <Pressable
             style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
             onPress={reset}
@@ -425,6 +445,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 4,
   },
+  resultRowPressed: { opacity: 0.6 },
   resultName: { fontSize: 14, color: '#374151' },
   resultCount: { fontSize: 14, color: THEME, fontWeight: '700' },
 });

@@ -16,6 +16,9 @@ export interface HistoryRecord {
   skippedSize: number;
   failed: number;
   perCategory: Record<string, number>;
+  // 本次整理的授权根目录与各分类文件夹 uri（有值才能浏览，旧记录无此字段）
+  rootUri?: string;
+  perCategoryUris?: Record<string, string>;
 }
 
 // 规则缺失字段用默认值合并，兼容旧版本结构变化

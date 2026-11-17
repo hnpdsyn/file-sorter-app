@@ -61,7 +61,9 @@ export async function pickDirectory(): Promise<PickResult> {
 }
 
 // SAF uri 经 expo-router params 传输会被二次解码（%3A->: 等），破坏 documentId 编码，
-// 导致子目录被错误解析成授权根目录。改用 Base64 打包传输（content uri 为纯 ASCII）
+// 导致子目录被错误解析成授权根目录。改用 URL-safe Base64 打包传输（content uri 为纯 ASCII）。
+// 注意：标准 Base64 含 +/= 三个字符，在 query 参数中同样会被改写（+ 变空格、= 是键值分隔符），
+// 必须换成 URL-safe 字母表（-_）并去掉 padding，保证编码结果在 URL 传输中零失真
 const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export function encodeUriParam(uri: string): string {
@@ -72,22 +74,18 @@ export function encodeUriParam(uri: string): string {
     const b2 = i + 2 < uri.length ? uri.charCodeAt(i + 2) : -1;
     out += B64_CHARS[b0 >> 2];
     out += B64_CHARS[((b0 & 3) << 4) | (b1 >= 0 ? b1 >> 4 : 0)];
-    if (b1 < 0) {
-      out += '==';
-      break;
-    }
+    if (b1 < 0) break; // 不输出 padding
     out += B64_CHARS[((b1 & 15) << 2) | (b2 >= 0 ? b2 >> 6 : 0)];
-    if (b2 < 0) {
-      out += '=';
-      break;
-    }
+    if (b2 < 0) break; // 不输出 padding
     out += B64_CHARS[b2 & 63];
   }
-  return out;
+  // 转为 URL-safe 字母表：+ -> -，/ -> _，无 padding
+  return out.replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 export function decodeUriParam(encoded: string): string {
-  const clean = encoded.replace(/=+$/, '');
+  // 先还原标准字母表，再去尾部 padding（解码循环本身兼容缺位）
+  const clean = encoded.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
   const idx = (ch: string) => B64_CHARS.indexOf(ch);
   let out = '';
   for (let i = 0; i < clean.length; i += 4) {
@@ -95,6 +93,7 @@ export function decodeUriParam(encoded: string): string {
     const c1 = i + 1 < clean.length ? idx(clean[i + 1]) : 0;
     const c2 = i + 2 < clean.length ? idx(clean[i + 2]) : -1;
     const c3 = i + 3 < clean.length ? idx(clean[i + 3]) : -1;
+    if (c0 < 0 || c1 < 0) continue;
     out += String.fromCharCode((c0 << 2) | (c1 >> 4));
     if (c2 >= 0) out += String.fromCharCode(((c1 & 15) << 4) | (c2 >> 2));
     if (c3 >= 0) out += String.fromCharCode(((c2 & 3) << 6) | c3);

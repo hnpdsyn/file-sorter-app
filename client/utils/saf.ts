@@ -60,6 +60,48 @@ export async function pickDirectory(): Promise<PickResult> {
   return { granted: true, uri: perm.directoryUri, name: decodeName(perm.directoryUri) };
 }
 
+// SAF uri 经 expo-router params 传输会被二次解码（%3A->: 等），破坏 documentId 编码，
+// 导致子目录被错误解析成授权根目录。改用 Base64 打包传输（content uri 为纯 ASCII）
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+export function encodeUriParam(uri: string): string {
+  let out = '';
+  for (let i = 0; i < uri.length; i += 3) {
+    const b0 = uri.charCodeAt(i);
+    const b1 = i + 1 < uri.length ? uri.charCodeAt(i + 1) : -1;
+    const b2 = i + 2 < uri.length ? uri.charCodeAt(i + 2) : -1;
+    out += B64_CHARS[b0 >> 2];
+    out += B64_CHARS[((b0 & 3) << 4) | (b1 >= 0 ? b1 >> 4 : 0)];
+    if (b1 < 0) {
+      out += '==';
+      break;
+    }
+    out += B64_CHARS[((b1 & 15) << 2) | (b2 >= 0 ? b2 >> 6 : 0)];
+    if (b2 < 0) {
+      out += '=';
+      break;
+    }
+    out += B64_CHARS[b2 & 63];
+  }
+  return out;
+}
+
+export function decodeUriParam(encoded: string): string {
+  const clean = encoded.replace(/=+$/, '');
+  const idx = (ch: string) => B64_CHARS.indexOf(ch);
+  let out = '';
+  for (let i = 0; i < clean.length; i += 4) {
+    const c0 = idx(clean[i]);
+    const c1 = i + 1 < clean.length ? idx(clean[i + 1]) : 0;
+    const c2 = i + 2 < clean.length ? idx(clean[i + 2]) : -1;
+    const c3 = i + 3 < clean.length ? idx(clean[i + 3]) : -1;
+    out += String.fromCharCode((c0 << 2) | (c1 >> 4));
+    if (c2 >= 0) out += String.fromCharCode(((c1 & 15) << 4) | (c2 >> 2));
+    if (c3 >= 0) out += String.fromCharCode(((c2 & 3) << 6) | c3);
+  }
+  return out;
+}
+
 // getInfoAsync 对 content uri 支持不稳定，目录探测用双保险：
 // 先试 getInfoAsync，无效时用 readDirectoryAsync 探测（抛错即文件）
 async function probeIsDirectory(uri: string): Promise<boolean> {

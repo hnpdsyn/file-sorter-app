@@ -6,6 +6,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
 import { clearHistory, loadHistory, type HistoryRecord } from '@/utils/store';
+import { encodeUriParam } from '@/utils/saf';
 
 const THEME = '#0F6B5C';
 

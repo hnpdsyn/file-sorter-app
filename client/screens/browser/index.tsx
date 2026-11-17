@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
-import { listEntries, type SafEntry } from '@/utils/saf';
+import { decodeUriParam, encodeUriParam, listEntries, type SafEntry } from '@/utils/saf';
 
 const THEME = '#0F6B5C';
 
@@ -14,7 +14,9 @@ export default function BrowserScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ uri?: string | string[]; name?: string | string[] }>();
-  const uri = Array.isArray(params.uri) ? params.uri[0] : params.uri || '';
+  // SAF uri 经路由传输会被二次解码破坏，Base64 打包后此处还原
+  const rawUri = Array.isArray(params.uri) ? params.uri[0] : params.uri || '';
+  const uri = rawUri.includes('content://') ? rawUri : decodeUriParam(rawUri);
   const name = Array.isArray(params.name) ? params.name[0] : params.name || '文件夹';
 
   const [entries, setEntries] = useState<SafEntry[]>([]);
@@ -53,7 +55,10 @@ export default function BrowserScreen() {
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
         disabled={!item.isDirectory}
         onPress={() =>
-          router.push({ pathname: '/browser', params: { uri: item.uri, name: item.name } })
+          router.push({
+            pathname: '/browser',
+            params: { uri: encodeUriParam(item.uri), name: item.name },
+          })
         }
       >
         <Ionicons

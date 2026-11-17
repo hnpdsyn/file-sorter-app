@@ -20,7 +20,7 @@ import {
   type ClassifiedFile,
   type OrganizeResult,
 } from '@/utils/organize';
-import { pickDirectory, type PickResult } from '@/utils/saf';
+import { encodeUriParam, pickDirectory, type PickResult } from '@/utils/saf';
 import { addHistory, loadRules, type HistoryRecord } from '@/utils/store';
 
 type Phase = 'idle' | 'scanning' | 'preview' | 'running' | 'done';
